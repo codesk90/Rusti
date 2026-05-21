@@ -12,6 +12,20 @@ From GitHub with curl:
 curl -fsSL https://raw.githubusercontent.com/codesk90/Rusti/main/install.sh | bash
 ```
 
+This downloads the latest prebuilt release binary for your OS/architecture and installs it to `~/.local/bin` by default.
+
+Override install location:
+
+```bash
+RUSTI_INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/codesk90/Rusti/main/install.sh | bash
+```
+
+Install a specific version:
+
+```bash
+RUSTI_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/codesk90/Rusti/main/install.sh | bash
+```
+
 Or from a local checkout:
 
 ```bash

@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -55,6 +55,13 @@ fn doctor() -> Result<()> {
 }
 
 fn demo() -> Result<()> {
+    if !io::stdout().is_terminal() {
+        println!(
+            "Rusti demo requires an interactive terminal. Try running `rusti demo` directly in your shell."
+        );
+        return Ok(());
+    }
+
     let mut stdout = io::stdout();
     terminal::enable_raw_mode()?;
     execute!(stdout, EnterAlternateScreen, cursor::Hide)?;
