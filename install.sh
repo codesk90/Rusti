@@ -55,7 +55,7 @@ main() {
   target="$(platform)"
   url="$(release_url "$target")"
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
+  trap "rm -rf '$tmp'" EXIT
 
   echo "Installing Rusti ${VERSION} for ${target}..."
   echo "Downloading ${url}"
