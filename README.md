@@ -4,7 +4,15 @@ Rusti is an open-source Rust terminal workbench for AI coding agents.
 
 The first goal is deliberately small: a durable CLI/TUI foundation that can grow into panes, agent sessions, logs, approvals, and command review without becoming hard to maintain.
 
-## Install locally
+## Install
+
+From GitHub with curl:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/codesk90/Rusti/main/install.sh | bash
+```
+
+Or from a local checkout:
 
 ```bash
 cargo install --path .

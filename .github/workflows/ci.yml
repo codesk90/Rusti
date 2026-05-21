@@ -17,6 +17,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Check installer script
+        run: bash -n install.sh
       - name: Format
         run: cargo fmt --check
       - name: Clippy
