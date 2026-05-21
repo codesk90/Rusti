@@ -40,10 +40,14 @@ release_url() {
   asset="rusti-${target}.tar.gz"
 
   if [ "$tag" = "latest" ]; then
-    echo "https://github.com/${REPO}/releases/latest/download/${asset}"
-  else
-    echo "https://github.com/${REPO}/releases/download/${tag}/${asset}"
+    tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+    if [ -z "$tag" ]; then
+      echo "error: could not resolve latest Rusti release" >&2
+      exit 1
+    fi
   fi
+
+  echo "https://github.com/${REPO}/releases/download/${tag}/${asset}"
 }
 
 main() {
