@@ -88,12 +88,16 @@ fn run_demo_loop(stdout: &mut impl Write) -> Result<()> {
         )?;
         stdout.flush()?;
 
-        if event::poll(Duration::from_millis(250))? {
-            if let Event::Key(key) = event::read()? {
-                if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) {
-                    break;
-                }
-            }
+        if !event::poll(Duration::from_millis(250))? {
+            continue;
+        }
+
+        let Event::Key(key) = event::read()? else {
+            continue;
+        };
+
+        if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) {
+            break;
         }
     }
 
