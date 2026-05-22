@@ -2,7 +2,7 @@
 
 Rusti is an open-source Rust terminal workbench for AI coding agents.
 
-The first goal is deliberately small: a durable CLI/TUI foundation that can grow into panes, agent sessions, logs, approvals, and command review without becoming hard to maintain.
+It now includes a real terminal mode: `rusti terminal` opens your local shell inside a pseudo-terminal. On macOS it uses your built-in shell from `$SHELL`, falling back to `/bin/zsh`.
 
 ## Install
 
@@ -23,7 +23,7 @@ RUSTI_INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/co
 Install a specific version:
 
 ```bash
-RUSTI_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/codesk90/Rusti/main/install.sh | bash
+RUSTI_VERSION=v0.2.0 curl -fsSL https://raw.githubusercontent.com/codesk90/Rusti/main/install.sh | bash
 ```
 
 Or from a local checkout:
@@ -35,10 +35,12 @@ cargo install --path .
 ## Run
 
 ```bash
-cargo run
+cargo run -- terminal
 cargo run -- doctor
 cargo run -- demo
 ```
+
+`rusti terminal` launches a real interactive shell session. Type `exit` or press Ctrl-D to quit.
 
 In the demo screen, press `q` or `Esc` to quit.
 
@@ -57,7 +59,8 @@ cargo test
 - Command/log stream viewer
 - Human approval queue
 - Config file support
-- Cross-platform packaging
+- DMG packaging
+- Intel macOS release asset
 
 ## License
 

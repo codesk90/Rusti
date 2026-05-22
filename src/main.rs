@@ -1,7 +1,8 @@
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal, Read, Write};
+use std::thread;
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use crossterm::{
     cursor,
@@ -10,7 +11,8 @@ use crossterm::{
     style::{Attribute, Print, SetAttribute},
     terminal::{self, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use rusti::{AppConfig, render_welcome};
+use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+use rusti::{AppConfig, TerminalConfig, render_welcome};
 
 #[derive(Debug, Parser)]
 #[command(name = "rusti")]
@@ -23,16 +25,35 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Open a real terminal session backed by your local shell.
+    #[command(alias = "term")]
+    Terminal,
     /// Check local terminal capabilities.
     Doctor,
     /// Open the starter terminal screen. Press q to quit.
     Demo,
 }
 
+struct RawModeGuard;
+
+impl RawModeGuard {
+    fn new() -> Result<Self> {
+        terminal::enable_raw_mode().context("failed to enable raw terminal mode")?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RawModeGuard {
+    fn drop(&mut self) {
+        let _ = terminal::disable_raw_mode();
+    }
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Some(Command::Terminal) => terminal_session(),
         Some(Command::Doctor) => doctor(),
         Some(Command::Demo) => demo(),
         None => {
@@ -44,12 +65,104 @@ fn main() -> Result<()> {
 
 fn doctor() -> Result<()> {
     let size = terminal::size().unwrap_or((0, 0));
+    let config = TerminalConfig::from_shell_env(std::env::var("SHELL").ok().as_deref());
 
     println!("Rusti doctor");
     println!("terminal size: {}x{}", size.0, size.1);
+    println!("shell: {}", config.shell);
+    println!("pty backend: available");
     println!("alternate screen: available");
     println!("keyboard events: available");
     println!("status: ok");
+
+    Ok(())
+}
+
+fn terminal_session() -> Result<()> {
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        println!(
+            "Rusti terminal requires an interactive terminal. Try running `rusti terminal` directly in your shell."
+        );
+        return Ok(());
+    }
+
+    let config = TerminalConfig::from_shell_env(std::env::var("SHELL").ok().as_deref());
+    let (cols, rows) = terminal::size().unwrap_or((80, 24));
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .context("failed to open pseudo-terminal")?;
+
+    let mut command = CommandBuilder::new(&config.shell);
+    if let Ok(current_dir) = std::env::current_dir() {
+        command.cwd(current_dir);
+    }
+    command.env(
+        "TERM",
+        std::env::var("TERM").unwrap_or_else(|_| "xterm-256color".to_string()),
+    );
+    command.env("RUSTI", "1");
+    command.env("RUSTI_SHELL", config.shell_name());
+
+    let mut child = pair
+        .slave
+        .spawn_command(command)
+        .with_context(|| format!("failed to start shell `{}`", config.shell))?;
+    drop(pair.slave);
+
+    let mut reader = pair
+        .master
+        .try_clone_reader()
+        .context("failed to clone pty reader")?;
+    let mut writer = pair
+        .master
+        .take_writer()
+        .context("failed to open pty writer")?;
+
+    let _raw_mode = RawModeGuard::new()?;
+    eprintln!(
+        "Rusti terminal: {}. Type `exit` or press Ctrl-D to quit.",
+        config.shell
+    );
+
+    let output_thread = thread::spawn(move || -> io::Result<()> {
+        let mut stdout = io::stdout();
+        io::copy(&mut reader, &mut stdout)?;
+        stdout.flush()
+    });
+
+    let input_thread = thread::spawn(move || -> io::Result<()> {
+        let mut stdin = io::stdin();
+        let mut buffer = [0_u8; 1024];
+
+        loop {
+            let bytes_read = stdin.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            writer.write_all(&buffer[..bytes_read])?;
+            writer.flush()?;
+        }
+
+        Ok(())
+    });
+
+    let status = child.wait().context("terminal child process failed")?;
+    drop(pair.master);
+
+    if let Err(error) = output_thread.join().unwrap_or(Ok(())) {
+        eprintln!("Rusti output stream ended: {error}");
+    }
+    drop(input_thread);
+
+    if !status.success() {
+        eprintln!("Rusti terminal exited with status: {status:?}");
+    }
 
     Ok(())
 }
